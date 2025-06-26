@@ -2,52 +2,52 @@
 import streamlit as st
 from openai import OpenAI
 
-# ✅ Load API Key securely (from .streamlit/secrets.toml)
+# ✅ Load API Key securely
 api_key = st.secrets["SUTRA_API_KEY"]
 
-# ✅ Initialize Sutra-compatible client
+# ✅ Initialize Sutra-compatible OpenAI client for SUTRA
 client = OpenAI(
-    base_url='https://api.two.ai/v2',
+    base_url="https://api.two.ai/v2",
     api_key=api_key
 )
 
-# ✅ Streamlit UI
-st.title("🎓 Multilingual Career Counselor (powered by SUTRA AI)")
-st.markdown("Ask your career question in any language, and get relevant course advice instantly.")
+# ✅ Page UI
+st.title("🎓 Multilingual Career Counselor (SUTRA AI)")
+st.markdown("Ask any career-related question in your native language and get personalized advice.")
 
-user_input = st.text_area("📝 Enter your career goal or question (in any language):", height=150)
+# ✅ Session state for context memory
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a multilingual career advisor. "
+                "Always reply in the same language as the user. "
+                "Provide career advice, suggest useful online courses or alternatives, and help with job or study planning. "
+                "Be conversational and helpful. Allow follow-up questions like 'Is that possible without a degree?' or 'Suggest something cheaper'."
+            )
+        }
+    ]
 
-if st.button("Get Career Advice"):
-    if not user_input.strip():
-        st.warning("Please enter your question first.")
-    else:
+# ✅ Primary input
+user_input = st.text_input("📝 What's your career goal, interest, or question?", key="main_input")
+
+# ✅ Trigger full conversation
+if st.button("Get Advice", key="submit_main"):
+    if user_input.strip():
+        st.session_state.messages.append({"role": "user", "content": user_input})
+
         with st.spinner("Generating advice..."):
-            # Define system prompt
-            system_prompt = {
-                "role": "system",
-                "content": (
-                    "You are a multilingual career advisor. "
-                    "Always respond in the same language as the user. "
-                    "Provide clear, concise advice and suggest useful online courses or learning paths based on the user's career interest."
-                )
-            }
-
-            messages = [
-                system_prompt,
-                {"role": "user", "content": user_input}
-            ]
-
             stream = client.chat.completions.create(
                 model="sutra-v2",
-                messages=messages,
+                messages=st.session_state.messages,
                 temperature=0.7,
-                max_tokens=600,
+                max_tokens=700,
                 stream=True
             )
 
-            # Stream output live
-            response_container = st.empty()
             full_response = ""
+            response_container = st.empty()
             for chunk in stream:
                 if chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
@@ -55,3 +55,41 @@ if st.button("Get Career Advice"):
                     response_container.markdown(full_response + "▌")
 
             response_container.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+    else:
+        st.warning("Please enter a career question.")
+
+# ✅ Follow-up support
+st.markdown("💬 *You can ask follow-up questions after getting a response.*")
+
+followup_input = st.text_input("💡 Ask a follow-up (e.g., 'Can I do it without a degree?')", key="followup_input")
+if st.button("Ask Follow-Up", key="submit_followup"):
+    if followup_input.strip():
+        st.session_state.messages.append({"role": "user", "content": followup_input})
+
+        with st.spinner("Following up..."):
+            stream = client.chat.completions.create(
+                model="sutra-v2",
+                messages=st.session_state.messages,
+                temperature=0.7,
+                max_tokens=700,
+                stream=True
+            )
+
+            full_response = ""
+            response_container = st.empty()
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    response_container.markdown(full_response + "▌")
+
+            response_container.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+    else:
+        st.warning("Enter a follow-up question.")
+
+# ✅ Reset conversation
+if st.button("🔄 Reset Conversation"):
+    st.session_state.messages = st.session_state.messages[:1]
+    st.success("Conversation history cleared.")
