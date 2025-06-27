@@ -1,4 +1,4 @@
-# 🎓 Multilingual Career Counselor (powered by SUTRA AI)
+# Multilingual Career Counselor (powered by SUTRA AI)
 
 A simple Streamlit app that uses TWO AI’s **SUTRA** large language model to provide **career advice** in **50+ languages**, with **structured JSON output** and **CV-based personalization**.
 
