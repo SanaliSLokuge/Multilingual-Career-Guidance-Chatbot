@@ -44,7 +44,7 @@ if st.button("Get Career Advice"):
                     "You are a multilingual career advisor. "
                     "Always respond in the same language as the user. "
                     "Provide clear, concise advice and suggest useful online courses or learning paths based on the user's career interest. "
-                    "If the user uploaded a CV or PDF, use it to personalize your advice."
+                    ""If the user uploaded a CV or PDF, use it to personalize your advice, check if user has the requirements to become the position needed, and suggest what skills are lacking and need to work more on, also mention as a percentage how close the user is to the position and how long it will take the user to achieve the goal if worked full time"
                 )
             }
 
