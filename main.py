@@ -3,6 +3,7 @@ import streamlit as st
 from openai import OpenAI
 import PyPDF2
 import tempfile
+import json
 
 # ✅ Load API Key securely
 api_key = st.secrets["SUTRA_API_KEY"]
@@ -24,7 +25,7 @@ if uploaded_file:
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(uploaded_file.read())
         tmp_path = tmp.name
-    
+
     with open(tmp_path, 'rb') as f:
         pdf_reader = PyPDF2.PdfReader(f)
         doc_text = "\n".join(page.extract_text() or "" for page in pdf_reader.pages)
@@ -36,15 +37,16 @@ if st.button("Get Career Advice"):
     if not user_input.strip():
         st.warning("Please enter your question first.")
     else:
-        with st.spinner("Generating advice..."):
-            # ✅ Define system prompt
+        with st.spinner("Generating structured advice..."):
+            # ✅ Define system prompt for structured output
             system_prompt = {
                 "role": "system",
                 "content": (
                     "You are a multilingual career advisor. "
                     "Always respond in the same language as the user. "
-                    "Provide clear, concise advice and suggest useful online courses or learning paths based on the user's career interest. "
-                    "If the user uploaded a CV or PDF, use it to personalize your advice, check if user has the requirements to become the position needed, and suggest what skills are lacking and need to work more on, also mention as a percentage how close the user is to the position and how long it will take the user to achieve the goal if worked full time"
+                    "Return your reply strictly as a JSON object with the following keys: "
+                    "suggested_career, missing_skills (list), relevance_score (percentage as string), estimated_time_to_goal (as string), recommended_courses (list of course names). "
+                    "If the user uploaded a CV or PDF, use it to personalize your advice."
                 )
             }
 
@@ -59,21 +61,22 @@ if st.button("Get Career Advice"):
                 {"role": "user", "content": user_message}
             ]
 
-            stream = client.chat.completions.create(
-                model="sutra-v2",
-                messages=messages,
-                temperature=0.7,
-                max_tokens=700,
-                stream=True
-            )
+            # ✅ Get full output (non-streaming for JSON parsing)
+            try:
+                response = client.chat.completions.create(
+                    model="sutra-v2",
+                    messages=messages,
+                    temperature=0.3,
+                    max_tokens=700
+                )
+                content = response.choices[0].message.content
 
-            # ✅ Stream output live
-            response_container = st.empty()
-            full_response = ""
-            for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    full_response += content
-                    response_container.markdown(full_response + "▌")
+                parsed = json.loads(content)
+                st.success("🌐 Structured Career Advice")
+                st.json(parsed)
 
-            response_container.markdown(full_response)
+            except json.JSONDecodeError:
+                st.error("Failed to parse structured response. Showing raw output below:")
+                st.markdown(content)
+            except Exception as e:
+                st.error(f"API error: {e}")
